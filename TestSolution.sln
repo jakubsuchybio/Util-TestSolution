@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InsensitiveInvariantForCzec
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WindowsServiceViaTopShelf", "WindowsServiceViaTopShelf\WindowsServiceViaTopShelf.csproj", "{25CA1C2B-6D08-41B4-8A80-1E6812DA75D3}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Learning FSharp", "Learning FSharp\Learning FSharp.fsproj", "{E1FCE5D3-81E7-4032-AC08-20E521B5AA83}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,10 @@ Global
 		{25CA1C2B-6D08-41B4-8A80-1E6812DA75D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{25CA1C2B-6D08-41B4-8A80-1E6812DA75D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{25CA1C2B-6D08-41B4-8A80-1E6812DA75D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1FCE5D3-81E7-4032-AC08-20E521B5AA83}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1FCE5D3-81E7-4032-AC08-20E521B5AA83}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1FCE5D3-81E7-4032-AC08-20E521B5AA83}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1FCE5D3-81E7-4032-AC08-20E521B5AA83}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
