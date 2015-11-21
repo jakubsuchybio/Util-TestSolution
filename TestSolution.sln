@@ -17,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AvoidUsingAsyncVoidExample"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "FSharpWithCSharpExample", "FSharpWithCSharpExample", "{4C1B1015-AEE4-4946-9097-E76A6E4D998C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InsensitiveInvariantForCzech", "InsensitiveInvariantForCzech\InsensitiveInvariantForCzech.csproj", "{BAE87383-F782-42F7-BE7C-65C1BDEEAE70}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,10 @@ Global
 		{80EF5EDD-A0C7-4DA3-99E3-8E740E50E52F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{80EF5EDD-A0C7-4DA3-99E3-8E740E50E52F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{80EF5EDD-A0C7-4DA3-99E3-8E740E50E52F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BAE87383-F782-42F7-BE7C-65C1BDEEAE70}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BAE87383-F782-42F7-BE7C-65C1BDEEAE70}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BAE87383-F782-42F7-BE7C-65C1BDEEAE70}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BAE87383-F782-42F7-BE7C-65C1BDEEAE70}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
