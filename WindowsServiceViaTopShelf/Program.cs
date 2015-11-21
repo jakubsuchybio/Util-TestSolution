@@ -15,7 +15,7 @@ using Topshelf;
 
 namespace WindowsServiceViaTopShelf
 {
-    public class Program
+    public static class Program
     {
         private static void Main(string[] args) {
             HostFactory.Run(
@@ -36,7 +36,15 @@ namespace WindowsServiceViaTopShelf
         }
     }
 
-    public class Startup
+    public class TimeController : ApiController
+    {
+        [HttpGet]
+        public string Now() {
+            return DateTime.Now.ToLongTimeString();
+        }
+    }
+
+    internal class Startup
     {
         public void Configuration(IAppBuilder appBuilder) {
             var config = new HttpConfiguration();
@@ -49,15 +57,7 @@ namespace WindowsServiceViaTopShelf
         }
     }
 
-    public class TimeController : ApiController
-    {
-        [HttpGet]
-        public string Now() {
-            return DateTime.Now.ToLongTimeString();
-        }
-    }
-
-    public class TimeService
+    internal class TimeService
     {
         private IDisposable _webServer;
 
