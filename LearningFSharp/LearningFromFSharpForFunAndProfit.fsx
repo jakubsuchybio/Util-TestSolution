@@ -389,11 +389,460 @@ module WhyUseFSharpSeries6 =
 //---------------------
 // Section 'Why use F#?' Series no. 7
 // http://fsharpforfunandprofit.com/posts/conciseness-intro/
+// No Code
 
 
 //---------------------
 // Section 'Why use F#?' Series no. 8
+// http://fsharpforfunandprofit.com/posts/conciseness-type-inference/
+module WhyUseFSharpSeries8 =
+    let Where source predicate =
+        //use the standard F# implementation
+        Seq.filter predicate source
+
+    let GroupBy source keySelector =
+        //use the standard F# implementation
+        Seq.groupBy keySelector source
+
+    let i  = 1
+    let s = "hello"
+    let tuple = s,i      // pack into tuple
+    let s2,i2 = tuple    // unpack
+    let list = [s2]       // type is string list
+
+    let sumLengths strList =
+        strList |> List.map String.length |> List.sum
+
+    // function type is: string list -> int
+
 //---------------------
 // Section 'Why use F#?' Series no. 9
+// http://fsharpforfunandprofit.com/posts/conciseness-type-definitions/
+module WhyUseFSharpSeries9 =
+    open System
+
+    // some "record" types
+    type Person = {FirstName:string; LastName:string; Dob:DateTime}
+    type Coord = {Lat:float; Long:float}
+
+    // some "union" (choice) types
+    type TimePeriod = Hour | Day | Week | Year
+    type Temperature = C of int | F of int
+    type Appointment = OneTime of DateTime
+                       | Recurring of DateTime list
+
+                       type PersonalName = {FirstName:string; LastName:string}
+
+    // Addresses
+    type StreetAddress = {Line1:string; Line2:string; Line3:string }
+
+    type ZipCode =  ZipCode of string
+    type StateAbbrev =  StateAbbrev of string
+    type ZipAndState =  {State:StateAbbrev; Zip:ZipCode }
+    type USAddress = {Street:StreetAddress; Region:ZipAndState}
+
+    type UKPostCode =  PostCode of string
+    type UKAddress = {Street:StreetAddress; Region:UKPostCode}
+
+    type InternationalAddress = {
+        Street:StreetAddress; Region:string; CountryName:string}
+
+    // choice type  -- must be one of these three specific types
+    type Address = USAddress | UKAddress | InternationalAddress
+
+    // Email
+    type Email = Email of string
+
+    // Phone
+    type CountryPrefix = Prefix of int
+    type Phone = {CountryPrefix:CountryPrefix; LocalNumber:string}
+
+    type Contact =
+        {
+        PersonalName: PersonalName;
+        // "option" means it might be missing
+        Address: Address option;
+        Email: Email option;
+        Phone: Phone option;
+        }
+
+    // Put it all together into a CustomerAccount type
+    type CustomerAccountId  = AccountId of string
+    type CustomerType  = Prospect | Active | Inactive
+
+    // override equality and deny comparison
+    [<CustomEquality; NoComparison>]
+    type CustomerAccount =
+        {
+        CustomerAccountId: CustomerAccountId;
+        CustomerType: CustomerType;
+        ContactInfo: Contact;
+        }
+
+        override this.Equals(other) =
+            match other with
+            | :? CustomerAccount as otherCust ->
+              (this.CustomerAccountId = otherCust.CustomerAccountId)
+            | _ -> false
+
+        override this.GetHashCode() = hash this.CustomerAccountId
+
 //---------------------
 // Section 'Why use F#?' Series no. 10
+// http://fsharpforfunandprofit.com/posts/conciseness-extracting-boilerplate/
+module WhyUseFSharpSeries10 =
+    let product n =
+        let initialValue = 1
+        let action productSoFar x = productSoFar * x
+        [1..n] |> List.fold action initialValue
+
+    //test
+    product 10
+
+    let sumOfOdds n =
+        let initialValue = 0
+        let action sumSoFar x = if x%2=0 then sumSoFar else sumSoFar+x
+        [1..n] |> List.fold action initialValue
+
+    //test
+    sumOfOdds 10
+
+    let alternatingSum n =
+        let initialValue = (true,0)
+        let action (isNeg,sumSoFar) x = if isNeg then (false,sumSoFar-x)
+                                                 else (true ,sumSoFar+x)
+        [1..n] |> List.fold action initialValue |> snd
+
+    //test
+    alternatingSum 100
+
+    let sumOfSquaresWithFold n =
+        let initialValue = 0
+        let action sumSoFar x = sumSoFar + (x*x)
+        [1..n] |> List.fold action initialValue
+
+    //test
+    sumOfSquaresWithFold 100
+
+    type NameAndSize= {Name:string;Size:int}
+
+    let maxNameAndSize list =
+
+        let innerMaxNameAndSize initialValue rest =
+            let action maxSoFar x = if maxSoFar.Size < x.Size then x else maxSoFar
+            rest |> List.fold action initialValue
+
+        // handle empty lists
+        match list with
+        | [] ->
+            None
+        | first::rest ->
+            let max = innerMaxNameAndSize first rest
+            Some max
+
+    //test
+    let list = [
+        {Name="Alice"; Size=10}
+        {Name="Bob"; Size=1}
+        {Name="Carol"; Size=12}
+        {Name="David"; Size=5}
+        ]
+    maxNameAndSize list
+    maxNameAndSize []
+
+    let maxNameAndSize2 list =
+        match list with
+        | [] ->
+            None
+        | _ ->
+            let max = list |> List.maxBy (fun item -> item.Size)
+            Some max
+
+//---------------------
+// Section 'Why use F#?' Series no. 11
+module WhyUseFSharpSeries11 =
+    // building blocks
+    let add2 x = x + 2
+    let mult3 x = x * 3
+    let square x = x * x
+
+    // test
+    [1..10] |> List.map add2 |> printfn "%A"
+    [1..10] |> List.map mult3 |> printfn "%A"
+    [1..10] |> List.map square |> printfn "%A"
+
+    // new composed functions
+    let add2ThenMult3 = add2 >> mult3
+    let mult3ThenSquare = mult3 >> square
+    // test
+    add2ThenMult3 5
+    mult3ThenSquare 5
+    [1..10] |> List.map add2ThenMult3 |> printfn "%A"
+    [1..10] |> List.map mult3ThenSquare |> printfn "%A"
+
+    // helper functions;
+    let logMsg msg x = printf "%s%i" msg x; x     //without linefeed
+    let logMsgN msg x = printfn "%s%i" msg x; x   //with linefeed
+
+    // new composed function with new improved logging!
+    let mult3ThenSquareLogged =
+       logMsg "before="
+       >> mult3
+       >> logMsg " after mult3="
+       >> square
+       >> logMsgN " result="
+
+    // test
+    mult3ThenSquareLogged 5
+    [1..10] |> List.map mult3ThenSquareLogged //apply to a whole list
+
+    let listOfFunctions = [
+       mult3;
+       square;
+       add2;
+       logMsgN "result=";
+       ]
+
+    // compose all functions in the list into a single one
+    let allFunctions = List.reduce (>>) listOfFunctions
+
+    //test
+    allFunctions 5
+
+    // set up the vocabulary
+    type DateScale = Hour | Hours | Day | Days | Week | Weeks
+    type DateDirection = Ago | Hence
+
+    // define a function that matches on the vocabulary
+    let getDate interval scale direction =
+        let absHours = match scale with
+                       | Hour | Hours -> 1 * interval
+                       | Day | Days -> 24 * interval
+                       | Week | Weeks -> 24 * 7 * interval
+        let signedHours = match direction with
+                          | Ago -> -1 * absHours
+                          | Hence ->  absHours
+        System.DateTime.Now.AddHours(float signedHours)
+
+    // test some examples
+    let example1 = getDate 5 Days Ago
+    let example2 = getDate 1 Hour Hence
+
+    // create an underlying type
+    type FluentShape = {
+        label : string;
+        color : string;
+        onClick : FluentShape->FluentShape // a function type
+        }
+
+    let defaultShape =
+        {label=""; color=""; onClick=fun shape->shape}
+
+    let click shape =
+        shape.onClick shape
+
+    let display shape =
+        printfn "My label=%s and my color=%s" shape.label shape.color
+        shape   //return same shape
+
+    let setLabel label shape =
+       {shape with FluentShape.label = label}
+
+    let setColor color shape =
+       {shape with FluentShape.color = color}
+
+    //add a click action to what is already there
+    let appendClickAction action shape =
+       {shape with FluentShape.onClick = shape.onClick >> action}
+
+    // Compose two "base" functions to make a compound function.
+    let setRedBox = setColor "red" >> setLabel "box"
+
+    // Create another function by composing with previous function.
+    // It overrides the color value but leaves the label alone.
+    let setBlueBox = setRedBox >> setColor "blue"
+
+    // Make a special case of appendClickAction
+    let changeColorOnClick color = appendClickAction (setColor color)
+
+    //setup some test values
+    let redBox = defaultShape |> setRedBox
+    let blueBox = defaultShape |> setBlueBox
+
+    // create a shape that changes color when clicked
+    redBox
+        |> display
+        |> changeColorOnClick "green"
+        |> click
+        |> display  // new version after the click
+
+    // create a shape that changes label and color when clicked
+    blueBox
+        |> display
+        |> appendClickAction (setLabel "box2" >> setColor "green")
+        |> click
+        |> display  // new version after the click
+
+    let rainbow =
+        ["red";"orange";"yellow";"green";"blue";"indigo";"violet"]
+
+    let showRainbow =
+        let setColorAndDisplay color = setColor color >> display
+        rainbow
+        |> List.map setColorAndDisplay
+        |> List.reduce (>>)
+
+    // test the showRainbow function
+    defaultShape |> showRainbow
+
+//---------------------
+// Section 'Why use F#?' Series no. 12
+module WhyUseFSharpSeries12 =
+    //matching tuples directly
+    let first, second, _ =  (1,2,3)  // underscore means ignore
+
+    //matching lists directly
+    let e1::e2::rest = [1..10]       // ignore the warning for now
+
+    //matching lists inside a match..with
+    let listMatcher aList =
+        match aList with
+        | [] -> printfn "the list is empty"
+        | [first] -> printfn "the list has one element %A " first
+        | [first; second] -> printfn "list is %A and %A" first second
+        | _ -> printfn "the list has more than two elements"
+
+    listMatcher [1;2;3;4]
+    listMatcher [1;2]
+    listMatcher [1]
+    listMatcher []
+
+    // create some types
+    type Address = { Street: string; City: string; }
+    type Customer = { ID: int; Name: string; Address: Address}
+
+    // create a customer
+    let customer1 = { ID = 1; Name = "Bob";
+          Address = {Street="123 Main"; City="NY" } }
+
+    // extract name only
+    let { Name=name1 } =  customer1
+    printfn "The customer is called %s" name1
+
+    // extract name and id
+    let { ID=id2; Name=name2; } =  customer1
+    printfn "The customer called %s has id %i" name2 id2
+
+    // extract name and address
+    let { Name=name3;  Address={Street=street3}  } =  customer1
+    printfn "The customer is called %s and lives on %s" name3 street3
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 13
+// No Code
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 14
+module WhyUseFSharpSeries14 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 15
+module WhyUseFSharpSeries15 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 16
+module WhyUseFSharpSeries16 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 17
+module WhyUseFSharpSeries17 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 18
+module WhyUseFSharpSeries18 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 19
+module WhyUseFSharpSeries19 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 20
+module WhyUseFSharpSeries20 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 21
+module WhyUseFSharpSeries21 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 22
+module WhyUseFSharpSeries22 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 23
+module WhyUseFSharpSeries23 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 24
+module WhyUseFSharpSeries24 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 25
+module WhyUseFSharpSeries25 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 26
+module WhyUseFSharpSeries26 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 27
+module WhyUseFSharpSeries27 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 28
+module WhyUseFSharpSeries28 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 29
+module WhyUseFSharpSeries29 =
+    let x = 0
+
+
+//---------------------
+// Section 'Why use F#?' Series no. 30
+module WhyUseFSharpSeries30 =
+    let x = 0
+
+
+//---------------------
