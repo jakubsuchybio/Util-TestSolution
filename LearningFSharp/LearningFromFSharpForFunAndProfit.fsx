@@ -746,49 +746,407 @@ module WhyUseFSharpSeries12 =
 //---------------------
 // Section 'Why use F#?' Series no. 14
 module WhyUseFSharpSeries14 =
-    let x = 0
+    type PersonalName = {FirstName:string; LastName:string}
+    type USAddress =
+       {Street:string; City:string; State:string; Zip:string}
+    type UKAddress =
+       {Street:string; Town:string; PostCode:string}
+    type Address = US of USAddress | UK of UKAddress
+    type Person =
+       {Name:string; Address:Address}
 
+    let alice = {
+       Name="Alice";
+       Address=US {Street="123 Main";City="LA";State="CA";Zip="91201"}}
+    let bob = {
+       Name="Bob";
+       Address=UK {Street="221b Baker St";Town="London";PostCode="NW1 6XE"}}
+
+    printfn "Alice is %A" alice
+    printfn "Bob is %A" bob
+
+    let alice1 = {FirstName="Alice"; LastName="Adams"}
+    let alice2 = {FirstName="Alice"; LastName="Adams"}
+    let bob1 = {FirstName="Bob"; LastName="Bishop"}
+
+    //test
+    printfn "alice1=alice2 is %A" (alice1=alice2)
+    printfn "alice1=bob1 is %A" (alice1=bob1)
+
+    type Suit = Club | Diamond | Spade | Heart
+    type Rank = Two | Three | Four | Five | Six | Seven | Eight
+                | Nine | Ten | Jack | Queen | King | Ace
+
+    let compareCard card1 card2 =
+        if card1 < card2
+        then printfn "%A is greater than %A" card2 card1
+        else printfn "%A is greater than %A" card1 card2
+
+    let aceHearts = Heart, Ace
+    let twoHearts = Heart, Two
+    let aceSpades = Spade, Ace
+
+    compareCard aceHearts twoHearts
+    compareCard twoHearts aceSpades
+
+    let hand = [ Club,Ace; Heart,Three; Heart,Ace;
+                 Spade,Jack; Diamond,Two; Diamond,Ace ]
+
+    //instant sorting!
+    List.sort hand |> printfn "sorted hand is (low to high) %A"
+    List.max hand |> printfn "high card is %A"
+    List.min hand |> printfn "low card is %A"
 
 //---------------------
 // Section 'Why use F#?' Series no. 15
+// http://fsharpforfunandprofit.com/posts/convenience-functions-as-interfaces/
 module WhyUseFSharpSeries15 =
-    let x = 0
+    let addingCalculator input = input + 1
+
+    let loggingCalculator innerCalculator input =
+       printfn "input is %A" input
+       let result = innerCalculator input
+       printfn "result is %A" result
+       result
+
+    let add1 input = input + 1
+    let times2 input = input * 2
+
+    let genericLogger anyFunc input =
+       printfn "input is %A" input   //log the input
+       let result = anyFunc input    //evaluate the function
+       printfn "result is %A" result //log the result
+       result                        //return the result
+
+    let add1WithLogging = genericLogger add1
+    let times2WithLogging = genericLogger times2
+
+    // test
+    add1WithLogging 3
+    times2WithLogging 3
+
+    [1..5] |> List.map add1WithLogging
+
+    let genericTimer anyFunc input =
+       let stopwatch = System.Diagnostics.Stopwatch()
+       stopwatch.Start()
+       let result = anyFunc input  //evaluate the function
+       System.Threading.Thread.Sleep(100)
+       stopwatch.Stop()
+       printfn "elapsed ms is %A" stopwatch.ElapsedMilliseconds
+       result
+
+    let add1WithTimer = genericTimer add1WithLogging
+
+    // test
+    add1WithTimer 3
+
+    type Animal(noiseMakingStrategy) =
+        member this.MakeNoise =
+            noiseMakingStrategy() |> printfn "Making noise %s"
+
+    // now create a cat
+    let meowing() = "Meow"
+    let cat = Animal(meowing)
+    cat.MakeNoise
+
+    // .. and a dog
+    let woofOrBark() = if (System.DateTime.Now.Second % 2 = 0)
+                       then "Woof" else "Bark"
+    let dog = Animal(woofOrBark)
+    dog.MakeNoise
+    dog.MakeNoise  //try again a second later
 
 
 //---------------------
 // Section 'Why use F#?' Series no. 16
+// http://fsharpforfunandprofit.com/posts/convenience-partial-application/
 module WhyUseFSharpSeries16 =
-    let x = 0
+    // define a adding function
+    let add x y = x + y
+
+    // normal use
+    let z = add 1 2
+
+    let add42 = add 42
+    // use the new function
+    add42 2
+    add42 3
+
+    let genericLogger before after anyFunc input =
+        before input               //callback for custom behavior
+        let result = anyFunc input //evaluate the function
+        after result               //callback for custom behavior
+        result                     //return the result
+
+
+    let add1 input = input + 1
+
+    // reuse case 1
+    genericLogger
+        (fun x -> printf "before=%i. " x) // function to call before
+        (fun x -> printfn " after=%i." x) // function to call after
+        add1                              // main function
+        2                                 // parameter
+
+    // reuse case 2
+    genericLogger
+        (fun x -> printf "started with=%i " x) // different callback
+        (fun x -> printfn " ended with=%i" x)
+        add1                              // main function
+        2                                 // parameter
+
+    // define a reusable function with the "callback" functions fixed
+    let add1WithConsoleLogging =
+        genericLogger
+            (fun x -> printf "input=%i. " x)
+            (fun x -> printfn " result=%i" x)
+            add1
+            // last parameter NOT defined here yet!
+
+    add1WithConsoleLogging 2
+    add1WithConsoleLogging 3
+    add1WithConsoleLogging 4
+    [1..5] |> List.map add1WithConsoleLogging
 
 
 //---------------------
 // Section 'Why use F#?' Series no. 17
+// http://fsharpforfunandprofit.com/posts/convenience-active-patterns/
 module WhyUseFSharpSeries17 =
-    let x = 0
+    // create an active pattern
+    let (|Int|_|) str =
+       match System.Int32.TryParse(str) with
+       | (true,int) -> Some(int)
+       | _ -> None
 
+    // create an active pattern
+    let (|Bool|_|) str =
+       match System.Boolean.TryParse(str) with
+       | (true,bool) -> Some(bool)
+       | _ -> None
+
+    // create a function to call the patterns
+    let testParse str =
+        match str with
+        | Int i -> printfn "The value is an int '%i'" i
+        | Bool b -> printfn "The value is a bool '%b'" b
+        | _ -> printfn "The value '%s' is something else" str
+
+    // test
+    testParse "12"
+    testParse "true"
+    testParse "abc"
+
+    // create an active pattern
+    open System.Text.RegularExpressions
+    let (|FirstRegexGroup|_|) pattern input =
+       let m = Regex.Match(input,pattern)
+       if (m.Success) then Some m.Groups.[1].Value else None
+
+    // create a function to call the pattern
+    let testRegex str =
+        match str with
+        | FirstRegexGroup "http://(.*?)/(.*)" host ->
+               printfn "The value is a url and the host is %s" host
+        | FirstRegexGroup ".*?@(.*)" host ->
+               printfn "The value is an email and the host is %s" host
+        | _ -> printfn "The value '%s' is something else" str
+
+    // test
+    testRegex "http://google.com/test"
+    testRegex "alice@hotmail.com"
+
+    // setup the active patterns
+    let (|MultOf3|_|) i = if i % 3 = 0 then Some MultOf3 else None
+    let (|MultOf5|_|) i = if i % 5 = 0 then Some MultOf5 else None
+
+    // the main function
+    let fizzBuzz i =
+        match i with
+        | MultOf3 & MultOf5 -> printf "FizzBuzz, "
+        | MultOf3 -> printf "Fizz, "
+        | MultOf5 -> printf "Buzz, "
+        | _ -> printf "%i, " i
+
+    // test
+    [1..20] |> List.iter fizzBuzz
 
 //---------------------
 // Section 'Why use F#?' Series no. 18
-module WhyUseFSharpSeries18 =
-    let x = 0
-
+// http://fsharpforfunandprofit.com/posts/correctness-intro/
+// No Code
 
 //---------------------
 // Section 'Why use F#?' Series no. 19
+// http://fsharpforfunandprofit.com/posts/correctness-immutability/
 module WhyUseFSharpSeries19 =
-    let x = 0
+    // immutable list
+    let list = [1;2;3;4]
 
+    type PersonalName = {FirstName:string; LastName:string}
+    // immutable person
+    let john = {FirstName="John"; LastName="Doe"}
+    let alice = {john with FirstName="Alice"}
+
+    // create an immutable list
+    let list1 = [1;2;3;4]
+
+    // prepend to make a new list
+    let list2 = 0::list1
+
+    // get the last 4 of the second list
+    let list3 = list2.Tail
+
+    // the two lists are the identical object in memory!
+    System.Object.ReferenceEquals(list1,list3)
 
 //---------------------
 // Section 'Why use F#?' Series no. 20
+// http://fsharpforfunandprofit.com/posts/correctness-exhaustive-pattern-matching/
 module WhyUseFSharpSeries20 =
-    let x = 0
+    type State = New | Draft | Published | Inactive | Discontinued
+    let handleState state =
+       match state with
+       | Inactive -> () // code for Inactive
+       | Draft -> () // code for Draft
+       | New -> () // code for New
+       | Discontinued -> () // code for Discontinued
 
+    let getFileInfo filePath =
+        let fi = new System.IO.FileInfo(filePath)
+        if fi.Exists then Some(fi) else None
+
+    let goodFileName2 = "good.txt"
+    let badFileName2 = "bad.txt"
+
+    let goodFileInfo = getFileInfo goodFileName // Some(fileinfo)
+    let badFileInfo = getFileInfo badFileName   // None
+
+    match goodFileInfo with
+        | Some fileInfo ->
+            printfn "the file %s exists" fileInfo.FullName
+        | None ->
+            printfn "the file doesn't exist"
+
+    match badFileInfo with
+        | Some fileInfo ->
+            printfn "the file %s exists" fileInfo.FullName
+        | None ->
+            printfn "the file doesn't exist"
+
+    let rec movingAverages list =
+        match list with
+        // if input is empty, return an empty list
+        | [] -> []
+        // otherwise process pairs of items from the input
+        | x::y::rest ->
+            let avg = (x+y)/2.0
+            //build the result by recursing the rest of the list
+            avg :: movingAverages (y::rest)
+        // for one item, return an empty list
+        | [_] -> []
+
+    // test
+    movingAverages [1.0]
+    movingAverages [1.0; 2.0]
+    movingAverages [1.0; 2.0; 3.0]
+
+    // define a "union" of two different alternatives
+    type Result<'a, 'b> =
+        | Success of 'a  // 'a means generic type. The actual type
+                         // will be determined when it is used.
+        | Failure of 'b  // generic failure type as well
+
+//    type Result<'a, 'b> =
+//        | Success of 'a
+//        | Failure of 'b
+//        | Indeterminate
+
+//    type Result<'a> =
+//        | Success of 'a
+
+    // define all possible errors
+    type FileErrorReason =
+        | FileNotFound of string
+        | UnauthorizedAccess of string * System.Exception
+
+    // define a low level function in the bottom layer
+    let performActionOnFile action filePath =
+       try
+          //open file, do the action and return the result
+          use sr = new System.IO.StreamReader(filePath:string)
+          let result = action sr  //do the action to the reader
+          sr.Close()
+          Success (result)        // return a Success
+       with      // catch some exceptions and convert them to errors
+          | :? System.IO.FileNotFoundException as ex
+              -> Failure (FileNotFound filePath)
+          | :? System.Security.SecurityException as ex
+              -> Failure (UnauthorizedAccess (filePath,ex))
+          // other exceptions are unhandled
+
+    // a function in the middle layer
+    let middleLayerDo action filePath =
+        let fileResult = performActionOnFile action filePath
+        // do some stuff
+        fileResult //return
+
+    // a function in the top layer
+    let topLayerDo action filePath =
+        let fileResult = middleLayerDo action filePath
+        // do some stuff
+        fileResult //return
+
+    /// get the first line of the file
+    let printFirstLineOfFile filePath =
+        let fileResult = topLayerDo (fun fs->fs.ReadLine()) filePath
+
+        match fileResult with
+        | Success result ->
+            // note type-safe string printing with %s
+            printfn "first line is: '%s'" result
+        | Failure reason ->
+           match reason with  // must match EVERY reason
+           | FileNotFound file ->
+               printfn "File not found: %s" file
+           | UnauthorizedAccess (file,_) ->
+               printfn "You do not have access to the file: %s" file
+
+    /// write some text to a file
+    let writeSomeText filePath someText =
+        use writer = new System.IO.StreamWriter(filePath:string)
+        writer.WriteLine(someText:string)
+        writer.Close()
+
+    /// get the length of the text in the file
+    let printLengthOfFile filePath =
+       let fileResult =
+         topLayerDo (fun fs->fs.ReadToEnd().Length) filePath
+
+       match fileResult with
+       | Success result ->
+          // note type-safe int printing with %i
+          printfn "length is: %i" result
+       | Failure _ ->
+          printfn "An error happened but I don't want to be specific"
+
+    let goodFileName = "good.txt"
+    let badFileName = "bad.txt"
+
+    writeSomeText goodFileName "hello"
+
+    printFirstLineOfFile goodFileName
+    printLengthOfFile goodFileName
+
+    printFirstLineOfFile badFileName
+    printLengthOfFile badFileName
 
 //---------------------
 // Section 'Why use F#?' Series no. 21
+// http://fsharpforfunandprofit.com/posts/correctness-type-checking/
 module WhyUseFSharpSeries21 =
-    let x = 0
+
 
 
 //---------------------
