@@ -1,5 +1,4 @@
-﻿#light
-//---------------------
+﻿//---------------------
 // Section 'Why use F#?'
 // http://fsharpforfunandprofit.com/why-use-fsharp/
 module WhyUseFSharp =
@@ -1020,8 +1019,8 @@ module WhyUseFSharpSeries20 =
     let goodFileName2 = "good.txt"
     let badFileName2 = "bad.txt"
 
-    let goodFileInfo = getFileInfo goodFileName // Some(fileinfo)
-    let badFileInfo = getFileInfo badFileName   // None
+    let goodFileInfo = getFileInfo goodFileName2 // Some(fileinfo)
+    let badFileInfo = getFileInfo badFileName2   // None
 
     match goodFileInfo with
         | Some fileInfo ->
@@ -1146,20 +1145,237 @@ module WhyUseFSharpSeries20 =
 // Section 'Why use F#?' Series no. 21
 // http://fsharpforfunandprofit.com/posts/correctness-type-checking/
 module WhyUseFSharpSeries21 =
+    //define a "safe" email address type
+    type EmailAddress = EmailAddress of string
 
+    //define a function that uses it
+    let sendEmail (EmailAddress email) =
+       printfn "sent an email to %s" email
 
+    //try to send one
+    let aliceEmail = EmailAddress "alice@example.com"
+    sendEmail aliceEmail
+
+    //try to send a plain string
+//    sendEmail "bob@example.com"   //error
+
+//    let printingExample =
+//       printf "an int %i" 2                        // ok
+//       printf "an int %i" 2.0                      // wrong type
+//       printf "an int %i" "hello"                  // wrong type
+//       printf "an int %i"                          // missing param
+//
+//       printf "a string %s" "hello"                // ok
+//       printf "a string %s" 2                      // wrong type
+//       printf "a string %s"                        // missing param
+//       printf "a string %s" "he" "lo"              // too many params
+//
+//       printf "an int %i and string %s" 2 "hello"  // ok
+//       printf "an int %i and string %s" "hello" 2  // wrong type
+//       printf "an int %i and string %s" 2          // missing param
+
+    let printAString x = printf "%s" x
+    let printAnInt x = printf "%i" x
+
+    // the result is:
+    // val printAString : string -> unit  //takes a string parameter
+    // val printAnInt : int -> unit       //takes an int parameter
+
+    // define some measures
+    [<Measure>]
+    type cm
+
+    [<Measure>]
+    type inches
+
+    [<Measure>]
+    type feet =
+       // add a conversion function
+       static member toInches(feet : float<feet>) : float<inches> =
+          feet * 12.0<inches/feet>
+
+    // define some values
+    let meter = 100.0<cm>
+    let yard = 3.0<feet>
+
+    //convert to different measure
+    let yardInInches = feet.toInches(yard)
+
+    // can't mix and match!
+//    yard + meter
+
+    // now define some currencies
+    [<Measure>]
+    type GBP
+
+    [<Measure>]
+    type USD
+
+    let gbp10 = 10.0<GBP>
+    let usd10 = 10.0<USD>
+    gbp10 + gbp10             // allowed: same currency
+//    gbp10 + usd10             // not allowed: different currency
+//    gbp10 + 1.0               // not allowed: didn't specify a currency
+    gbp10 + 1.0<_>            // allowed using wildcard
+
+    open System
+    let obj = new Object()
+    let ex = new Exception()
+//    let b = (obj = ex) // ERROR
+
+    // deny comparison
+    [<NoEquality; NoComparison>]
+    type CustomerAccount = {CustomerAccountId: int}
+
+    let x = {CustomerAccountId = 1}
+
+//    x = x       // error!
+    x.CustomerAccountId = x.CustomerAccountId // no error
 
 //---------------------
 // Section 'Why use F#?' Series no. 22
+// http://fsharpforfunandprofit.com/posts/designing-for-correctness/
 module WhyUseFSharpSeries22 =
-    let x = 0
+    type CartItem = string    // placeholder for a more complicated type
 
+    type EmptyState = NoItems // don't use empty list! We want to
+                              // force clients to handle this as a
+                              // separate case. E.g. "you have no
+                              // items in your cart"
+
+    type ActiveState = { UnpaidItems : CartItem list; }
+    type PaidForState = { PaidItems : CartItem list;
+                          Payment : decimal}
+
+    type Cart =
+        | Empty of EmptyState
+        | Active of ActiveState
+        | PaidFor of PaidForState
+
+    // =============================
+    // operations on empty state
+    // =============================
+
+    let addToEmptyState item =
+       // returns a new Active Cart
+       Cart.Active {UnpaidItems=[item]}
+
+    // =============================
+    // operations on active state
+    // =============================
+
+    let addToActiveState state itemToAdd =
+       let newList = itemToAdd :: state.UnpaidItems
+       Cart.Active {state with UnpaidItems=newList }
+
+    let removeFromActiveState state itemToRemove =
+       let newList = state.UnpaidItems
+                     |> List.filter (fun i -> i<>itemToRemove)
+
+       match newList with
+       | [] -> Cart.Empty NoItems
+       | _ -> Cart.Active {state with UnpaidItems=newList}
+
+    let payForActiveState state amount =
+       // returns a new PaidFor Cart
+       Cart.PaidFor {PaidItems=state.UnpaidItems; Payment=amount}
+
+    type EmptyState with
+       member this.Add = addToEmptyState
+
+    type ActiveState with
+       member this.Add = addToActiveState this
+       member this.Remove = removeFromActiveState this
+       member this.Pay = payForActiveState this
+
+    let addItemToCart cart item =
+       match cart with
+       | Empty state -> state.Add item
+       | Active state -> state.Add item
+       | PaidFor state ->
+           printfn "ERROR: The cart is paid for"
+           cart
+
+    let removeItemFromCart cart item =
+       match cart with
+       | Empty state ->
+          printfn "ERROR: The cart is empty"
+          cart   // return the cart
+       | Active state ->
+          state.Remove item
+       | PaidFor state ->
+          printfn "ERROR: The cart is paid for"
+          cart   // return the cart
+
+    let displayCart cart  =
+       match cart with
+       | Empty state ->
+          printfn "The cart is empty"   // can't do state.Items
+       | Active state ->
+          printfn "The cart contains %A unpaid items"
+                                                    state.UnpaidItems
+       | PaidFor state ->
+          printfn "The cart contains %A paid items. Amount paid: %f"
+                                        state.PaidItems state.Payment
+
+    type Cart with
+       static member NewCart = Cart.Empty NoItems
+       member this.Add = addItemToCart this
+       member this.Remove = removeItemFromCart this
+       member this.Display = displayCart this
+
+    let emptyCart = Cart.NewCart
+    printf "emptyCart="; emptyCart.Display
+
+    let cartA = emptyCart.Add "A"
+    printf "cartA="; cartA.Display
+
+    let cartAB = cartA.Add "B"
+    printf "cartAB="; cartAB.Display
+
+    let cartB = cartAB.Remove "A"
+    printf "cartB="; cartB.Display
+
+    let emptyCart2 = cartB.Remove "B"
+    printf "emptyCart2="; emptyCart2.Display
+
+    let emptyCart3 = emptyCart2.Remove "B"    //error
+    printf "emptyCart3="; emptyCart3.Display
+
+    //  try to pay for cartA
+    let cartAPaid =
+        match cartA with
+        | Empty _ | PaidFor _ -> cartA
+        | Active state -> state.Pay 100m
+    printf "cartAPaid="; cartAPaid.Display
+
+    //  try to pay for emptyCart
+    let emptyCartPaid =
+        match emptyCart with
+        | Empty _ | PaidFor _ -> emptyCart
+        | Active state -> state.Pay 100m
+    printf "emptyCartPaid="; emptyCartPaid.Display
+
+    //  try to pay for cartAB
+    let cartABPaid =
+        match cartAB with
+        | Empty _ | PaidFor _ -> cartAB // return the same cart
+        | Active state -> state.Pay 100m
+
+    //  try to pay for cartAB again
+    let cartABPaidAgain =
+        match cartABPaid with
+        | Empty _ | PaidFor _ -> cartABPaid  // return the same cart
+        | Active state -> state.Pay 100m
+
+//    match cartABPaid with
+//    | Empty state -> state.Pay 100m
+//    | PaidFor state -> state.Pay 100m
+//    | Active state -> state.Pay 100m
 
 //---------------------
 // Section 'Why use F#?' Series no. 23
-module WhyUseFSharpSeries23 =
-    let x = 0
-
+// No Code
 
 //---------------------
 // Section 'Why use F#?' Series no. 24
