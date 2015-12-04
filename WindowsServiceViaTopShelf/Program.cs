@@ -15,60 +15,60 @@ using Topshelf;
 
 namespace WindowsServiceViaTopShelf
 {
-    public static class Program
-    {
-        private static void Main(string[] args) {
-            HostFactory.Run(
-            configuration => {
-                configuration.Service<TimeService>(
-                    service => {
-                        service.ConstructUsing( x => new TimeService() );
-                        service.WhenStarted( x => x.Start() );
-                        service.WhenStopped( x => x.Stop() );
-                    } );
+	public static class Program
+	{
+		private static void Main(string[] args) {
+			HostFactory.Run(
+			configuration => {
+				configuration.Service<TimeService>(
+					service => {
+						service.ConstructUsing( x => new TimeService() );
+						service.WhenStarted( x => x.Start() );
+						service.WhenStopped( x => x.Stop() );
+					} );
 
-                configuration.RunAsLocalSystem();
+				configuration.RunAsLocalSystem();
 
-                configuration.SetServiceName( "ASimpleService" );
-                configuration.SetDisplayName( "A Simple Service" );
-                configuration.SetDescription( "Don't Code Tired Demo" );
-            } );
-        }
-    }
+				configuration.SetServiceName( "ASimpleService" );
+				configuration.SetDisplayName( "A Simple Service" );
+				configuration.SetDescription( "Don't Code Tired Demo" );
+			} );
+		}
+	}
 
-    public class TimeController : ApiController
-    {
-        [HttpGet]
-        public string Now() {
-            return DateTime.Now.ToLongTimeString();
-        }
-    }
+	public class TimeController : ApiController
+	{
+		[HttpGet]
+		public string Now() {
+			return DateTime.Now.ToLongTimeString();
+		}
+	}
 
-    internal class Startup
-    {
-        public void Configuration(IAppBuilder appBuilder) {
-            var config = new HttpConfiguration();
+	internal class Startup
+	{
+		public void Configuration(IAppBuilder appBuilder) {
+			using( var config = new HttpConfiguration() ) {
+				config.Routes.MapHttpRoute( "DefaultApi", "api/{controller}/{time}" );
+				config.Formatters.Remove( config.Formatters.XmlFormatter );
+				config.Formatters.Add( config.Formatters.JsonFormatter );
 
-            config.Routes.MapHttpRoute( "DefaultApi", "api/{controller}/{time}" );
-            config.Formatters.Remove( config.Formatters.XmlFormatter );
-            config.Formatters.Add( config.Formatters.JsonFormatter );
+				appBuilder.UseWebApi( config );
+			}
+		}
+	}
 
-            appBuilder.UseWebApi( config );
-        }
-    }
+	internal class TimeService
+	{
+		private IDisposable _webServer;
 
-    internal class TimeService
-    {
-        private IDisposable _webServer;
+		public void Start() {
+			// code that runs when the Windows Service starts up
+			_webServer = WebApp.Start<Startup>( "http://localhost:8084" );
+		}
 
-        public void Start() {
-            // code that runs when the Windows Service starts up
-            _webServer = WebApp.Start<Startup>( "http://localhost:8084" );
-        }
-
-        public void Stop() {
-            // code that runs when the Windows Service stops
-            _webServer.Dispose();
-        }
-    }
+		public void Stop() {
+			// code that runs when the Windows Service stops
+			_webServer.Dispose();
+		}
+	}
 }

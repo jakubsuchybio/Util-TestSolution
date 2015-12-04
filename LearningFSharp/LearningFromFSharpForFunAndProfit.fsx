@@ -1380,32 +1380,746 @@ module WhyUseFSharpSeries22 =
 //---------------------
 // Section 'Why use F#?' Series no. 24
 module WhyUseFSharpSeries24 =
-    let x = 0
+    open System
 
+    let userTimerWithCallback =
+        // create a event to wait on
+        let event = new System.Threading.AutoResetEvent(false)
+
+        // create a timer and add an event handler that will signal the event
+        let timer = new System.Timers.Timer(2000.0)
+        timer.Elapsed.Add (fun _ -> event.Set() |> ignore )
+
+        //start
+        printfn "Waiting for timer at %O" DateTime.Now.TimeOfDay
+        timer.Start()
+
+        // keep working
+        printfn "Doing something useful while waiting for event"
+
+        // block on the timer via the AutoResetEvent
+        event.WaitOne() |> ignore
+
+        //done
+        printfn "Timer ticked at %O" DateTime.Now.TimeOfDay
+
+
+    open System
+    //open Microsoft.FSharp.Control  // Async.* is in this module.
+
+    let userTimerWithAsync =
+
+        // create a timer and associated async event
+        let timer = new System.Timers.Timer(2000.0)
+        let timerEvent = Async.AwaitEvent (timer.Elapsed) |> Async.Ignore
+
+        // start
+        printfn "Waiting for timer at %O" DateTime.Now.TimeOfDay
+        timer.Start()
+
+        // keep working
+        printfn "Doing something useful while waiting for event"
+
+        // block on the timer event now by waiting for the async to complete
+        Async.RunSynchronously timerEvent
+
+        // done
+        printfn "Timer ticked at %O" DateTime.Now.TimeOfDay
+
+
+    let fileWriteWithAsync =
+
+        // create a stream to write to
+        use stream = new System.IO.FileStream("test.txt",System.IO.FileMode.Create)
+
+        // start
+        printfn "Starting async write"
+        let asyncResult = stream.BeginWrite(Array.empty,0,0,null,null)
+
+        // create an async wrapper around an IAsyncResult
+        let async = Async.AwaitIAsyncResult(asyncResult) |> Async.Ignore
+
+        // keep working
+        printfn "Doing something useful while waiting for write to complete"
+
+        // block on the timer now by waiting for the async to complete
+        Async.RunSynchronously async
+
+        // done
+        printfn "Async write completed"
+
+
+    let sleepWorkflow  = async{
+        printfn "Starting sleep workflow at %O" DateTime.Now.TimeOfDay
+        do! Async.Sleep 2000
+        printfn "Finished sleep workflow at %O" DateTime.Now.TimeOfDay
+        }
+
+    Async.RunSynchronously sleepWorkflow
+
+    let nestedWorkflow  = async{
+
+        printfn "Starting parent"
+        let! childWorkflow = Async.StartChild sleepWorkflow
+
+        // give the child a chance and then keep working
+        do! Async.Sleep 100
+        printfn "Doing something useful while waiting "
+
+        // block on the child
+        let! result = childWorkflow
+
+        // done
+        printfn "Finished parent"
+        }
+
+    // run the whole workflow
+    Async.RunSynchronously nestedWorkflow
+
+    let testLoop = async {
+        for i in [1..100] do
+            // do something
+            printf "%i before.." i
+
+            // sleep a bit
+            do! Async.Sleep 10
+            printfn "..after"
+        }
+
+//    Async.RunSynchronously testLoop
+
+    open System
+    open System.Threading
+
+    // create a cancellation source
+    let cancellationSource = new CancellationTokenSource()
+
+    // start the task, but this time pass in a cancellation token
+    Async.Start (testLoop,cancellationSource.Token)
+
+    // wait a bit
+    Thread.Sleep(200)
+
+    // cancel after 200ms
+    cancellationSource.Cancel()
+
+
+    // create a workflow to sleep for a time
+    let sleepWorkflowMs ms = async {
+        printfn "%i ms workflow started" ms
+        do! Async.Sleep ms
+        printfn "%i ms workflow finished" ms
+        }
+
+    let workflowInSeries = async {
+        let! sleep1 = sleepWorkflowMs 1000
+        printfn "Finished one"
+        let! sleep2 = sleepWorkflowMs 2000
+        printfn "Finished two"
+        }
+
+    //Synchronous run
+    //    #time
+    Async.RunSynchronously workflowInSeries
+    //    #time
+
+    //Parallel run
+    // Create them
+    let sleep1 = sleepWorkflowMs 1000
+    let sleep2 = sleepWorkflowMs 2000
+
+//    // run them in parallel
+//    #time
+    [sleep1; sleep2]
+        |> Async.Parallel
+        |> Async.RunSynchronously
+//    #time
+
+
+    open System.Net
+    open System
+    open System.IO
+
+    let fetchUrl url =
+        let req = WebRequest.Create(Uri(url))
+        use resp = req.GetResponse()
+        use stream = resp.GetResponseStream()
+        use reader = new IO.StreamReader(stream)
+        let html = reader.ReadToEnd()
+        printfn "finished downloading %s" url
+
+        // a list of sites to fetch
+    let sites = ["http://www.bing.com";
+                 "http://www.google.com";
+                 "http://www.microsoft.com";
+                 "http://www.amazon.com";
+                 "http://www.yahoo.com"]
+
+//    #time                     // turn interactive timer on
+    sites                     // start with the list of sites
+    |> List.map fetchUrl      // loop through each site and download
+//    #time                     // turn timer off
+
+
+    open Microsoft.FSharp.Control.CommonExtensions
+                                                // adds AsyncGetResponse
+
+    // Fetch the contents of a web page asynchronously
+    let fetchUrlAsync url =
+        async {
+            let req = WebRequest.Create(Uri(url))
+            use! resp = req.AsyncGetResponse()  // new keyword "use!"
+            use stream = resp.GetResponseStream()
+            use reader = new IO.StreamReader(stream)
+            let html = reader.ReadToEnd()
+            printfn "finished downloading %s" url
+            }
+
+//    #time                      // turn interactive timer on
+    sites
+    |> List.map fetchUrlAsync  // make a list of async tasks
+    |> Async.Parallel          // set up the tasks to run in parallel
+    |> Async.RunSynchronously  // start them off
+//    #time                      // turn timer off
+
+
+    let childTask() =
+        // chew up some CPU.
+        for i in [1..1800] do
+            for i in [1..1000] do
+                do "Hello".Contains("H") |> ignore
+                // we don't care about the answer!
+
+    // Test the child task on its own.
+    // Adjust the upper bounds as needed
+    // to make this run in about 0.2 sec
+//    #time
+    childTask()
+//    #time
+
+    let parentTask =
+        childTask
+        |> List.replicate 20
+        |> List.reduce (>>)
+
+    //test
+//    #time
+    parentTask()
+//    #time
+
+    let asyncChildTask = async { return childTask() }
+
+    let asyncParentTask =
+        asyncChildTask
+        |> List.replicate 20
+        |> Async.Parallel
+
+    //test
+//    #time
+    asyncParentTask
+    |> Async.RunSynchronously
+//    #time
 
 //---------------------
 // Section 'Why use F#?' Series no. 25
 module WhyUseFSharpSeries25 =
-    let x = 0
+//    #nowarn "40"
+    let printerAgent = MailboxProcessor.Start(fun inbox->
 
+        // the message processing function
+        let rec messageLoop = async{
+
+            // read a message
+            let! msg = inbox.Receive()
+
+            // process a message
+            printfn "message is: %s" msg
+
+            // loop to top
+            return! messageLoop
+            }
+
+        // start the loop
+        messageLoop
+        )
+
+    // test it
+    printerAgent.Post "wazuuup"
+    printerAgent.Post "wazuuup again"
+    printerAgent.Post "wazuuup a third time"
+
+
+    open System
+    open System.Threading
+    open System.Diagnostics
+
+    // a utility function
+    type Utility() =
+        static let rand = new Random()
+
+        static member RandomSleep() =
+            let ms = rand.Next(1,10)
+            Thread.Sleep ms
+
+    // an implementation of a shared counter using locks
+    type LockedCounter () =
+
+        static let _lock = new Object()
+
+        static let mutable count = 0
+        static let mutable sum = 0
+
+        static let updateState i =
+            // increment the counters and...
+            sum <- sum + i
+            count <- count + 1
+            printfn "Count is: %i. Sum is: %i" count sum
+
+            // ...emulate a short delay
+            Utility.RandomSleep()
+
+
+        // public interface to hide the state
+        static member Add i =
+            // see how long a client has to wait
+            let stopwatch = new Stopwatch()
+            stopwatch.Start()
+
+            // start lock. Same as C# lock{...}
+            lock _lock (fun () ->
+
+                // see how long the wait was
+                stopwatch.Stop()
+                printfn "Client waited %i" stopwatch.ElapsedMilliseconds
+
+                // do the core logic
+                updateState i
+                )
+            // release lock
+
+    // test in isolation
+    LockedCounter.Add 4
+    LockedCounter.Add 5
+
+    let makeCountingTask addFunction taskId  = async {
+        let name = sprintf "Task%i" taskId
+        for i in [1..3] do
+            addFunction i
+        }
+
+    // test in isolation
+    let task = makeCountingTask LockedCounter.Add 1
+    Async.RunSynchronously task
+//    #time
+    let lockedExample5 =
+        [1..100]
+            |> List.map (fun i -> makeCountingTask LockedCounter.Add i)
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> ignore
+//    #time
+
+    type MessageBasedCounter () =
+
+        static let updateState (count,sum) msg =
+
+            // increment the counters and...
+            let newSum = sum + msg
+            let newCount = count + 1
+            printfn "Count is: %i. Sum is: %i" newCount newSum
+
+            // ...emulate a short delay
+            Utility.RandomSleep()
+
+            // return the new state
+            (newCount,newSum)
+
+        // create the agent
+        static let agent = MailboxProcessor.Start(fun inbox ->
+
+            // the message processing function
+            let rec messageLoop oldState = async{
+
+                // read a message
+                let! msg = inbox.Receive()
+
+                // do the core logic
+                let newState = updateState oldState msg
+
+                // loop to top
+                return! messageLoop newState
+                }
+
+            // start the loop
+            messageLoop (0,0)
+            )
+
+        // public interface to hide the implementation
+        static member Add i = agent.Post i
+
+    // test in isolation
+    MessageBasedCounter.Add 4
+    MessageBasedCounter.Add 5
+
+    let task2 = makeCountingTask MessageBasedCounter.Add 1
+    Async.RunSynchronously task2
+    let messageExample5 =
+        [1..100]
+            |> List.map (fun i -> makeCountingTask MessageBasedCounter.Add i)
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> ignore
+
+    let slowConsoleWrite msg =
+        msg |> String.iter (fun ch->
+            System.Threading.Thread.Sleep(1)
+            System.Console.Write ch
+            )
+
+    // test in isolation
+    slowConsoleWrite "abc"
+
+    let makeTask logger taskId = async {
+        let name = sprintf "Task%i" taskId
+        for i in [1..3] do
+            let msg = sprintf "-%s:Loop%i-" name i
+            logger msg
+        }
+
+    // test in isolation
+    let task3 = makeTask slowConsoleWrite 1
+    Async.RunSynchronously task3
+
+    type UnserializedLogger() =
+        // interface
+        member this.Log msg = slowConsoleWrite msg
+
+    // test in isolation
+    let unserializedLogger = UnserializedLogger()
+    unserializedLogger.Log "hello"
+
+    let unserializedExample =
+        let logger = new UnserializedLogger()
+        [1..5]
+            |> List.map (fun i -> makeTask logger.Log i)
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> ignore
+
+    type SerializedLogger() =
+
+        // create the mailbox processor
+        let agent = MailboxProcessor.Start(fun inbox ->
+
+            // the message processing function
+            let rec messageLoop () = async{
+
+                // read a message
+                let! msg = inbox.Receive()
+
+                // write it to the log
+                slowConsoleWrite msg
+
+                // loop to top
+                return! messageLoop ()
+                }
+
+            // start the loop
+            messageLoop ()
+            )
+
+        // public interface
+        member this.Log msg = agent.Post msg
+
+    // test in isolation
+    let serializedLogger = SerializedLogger()
+    serializedLogger.Log "hello"
+
+    let serializedExample =
+        let logger = new SerializedLogger()
+        [1..5]
+            |> List.map (fun i -> makeTask logger.Log i)
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> ignore
 
 //---------------------
 // Section 'Why use F#?' Series no. 26
+// http://fsharpforfunandprofit.com/posts/concurrency-reactive/
+
 module WhyUseFSharpSeries26 =
-    let x = 0
+    open System
+    open System.Threading
+
+    /// create a timer and register an event handler,
+    /// then run the timer for five seconds
+    let createTimer timerInterval eventHandler =
+        // setup a timer
+        let timer = new System.Timers.Timer(float timerInterval)
+        timer.AutoReset <- true
+
+        // add an event handler
+        timer.Elapsed.Add eventHandler
+
+        // return an async task
+        async {
+            // start timer...
+            timer.Start()
+            // ...run for five seconds...
+            do! Async.Sleep 5000
+            // ... and stop
+            timer.Stop()
+        }
+
+    // create a handler. The event args are ignored
+    let basicHandler _ = printfn "tick %A" DateTime.Now
+
+    // register the handler
+    let basicTimer1 = createTimer 1000 basicHandler
+
+    // run the task now
+    Async.RunSynchronously basicTimer1
+
+    let createTimerAndObservable timerInterval =
+        // setup a timer
+        let timer = new System.Timers.Timer(float timerInterval)
+        timer.AutoReset <- true
+
+        // events are automatically IObservable
+        let observable = timer.Elapsed
+
+        // return an async task
+        let task = async {
+            timer.Start()
+            do! Async.Sleep 5000
+            timer.Stop()
+            }
+
+        // return a async task and the observable
+        (task,observable)
+
+    // create the timer and the corresponding observable
+    let basicTimer2 , timerEventStream = createTimerAndObservable 1000
+
+    // register that everytime something happens on the
+    // event stream, print the time.
+    timerEventStream
+    |> Observable.subscribe (fun _ -> printfn "tick %A" DateTime.Now)
+
+    // run the task now
+    Async.RunSynchronously basicTimer2
+
+    type ImperativeTimerCount() =
+
+        let mutable count = 0
+
+        // the event handler. The event args are ignored
+        member this.handleEvent _ =
+          count <- count + 1
+          printfn "timer ticked with count %i" count
+
+    // create a handler class
+    let handler = new ImperativeTimerCount()
+
+    // register the handler method
+    let timerCount1 = createTimer 500 handler.handleEvent
+
+    // run the task now
+    Async.RunSynchronously timerCount1
+
+    // create the timer and the corresponding observable
+    let timerCount2, timerEventStream2 = createTimerAndObservable 500
+
+    // set up the transformations on the event stream
+    timerEventStream2
+    |> Observable.scan (fun count _ -> count + 1) 0
+    |> Observable.subscribe (fun count -> printfn "timer ticked with count %i" count)
+
+    // run the task now
+    Async.RunSynchronously timerCount2
 
 
+    type FizzBuzzEvent = {label:int; time: DateTime}
+
+    let areSimultaneous (earlierEvent,laterEvent) =
+        let {label=_;time=t1} = earlierEvent
+        let {label=_;time=t2} = laterEvent
+        t2.Subtract(t1).Milliseconds < 50
+
+    type ImperativeFizzBuzzHandler() =
+
+        let mutable previousEvent: FizzBuzzEvent option = None
+
+        let printEvent thisEvent  =
+          let {label=id; time=t} = thisEvent
+          printf "[%i] %i.%03i " id t.Second t.Millisecond
+          let simultaneous = previousEvent.IsSome && areSimultaneous (previousEvent.Value,thisEvent)
+          if simultaneous then printfn "FizzBuzz"
+          elif id = 3 then printfn "Fizz"
+          elif id = 5 then printfn "Buzz"
+
+        member this.handleEvent3 eventArgs =
+          let event = {label=3; time=DateTime.Now}
+          printEvent event
+          previousEvent <- Some event
+
+        member this.handleEvent5 eventArgs =
+          let event = {label=5; time=DateTime.Now}
+          printEvent event
+          previousEvent <- Some event
+
+    // create the class
+    let handler2 = new ImperativeFizzBuzzHandler()
+
+    // create the two timers and register the two handlers
+    let timer3 = createTimer 300 handler2.handleEvent3
+    let timer5 = createTimer 500 handler2.handleEvent5
+
+    // run the two timers at the same time
+    [timer3;timer5]
+    |> Async.Parallel
+    |> Async.RunSynchronously
+
+    let timer33, timerEventStream3 = createTimerAndObservable 300
+    let timer55, timerEventStream5 = createTimerAndObservable 500
+
+    // convert the time events into FizzBuzz events with the appropriate id
+    let eventStream3  =
+       timerEventStream3
+       |> Observable.map (fun _ -> {label=3; time=DateTime.Now})
+
+    let eventStream5  =
+       timerEventStream5
+       |> Observable.map (fun _ -> {label=5; time=DateTime.Now})
+
+    // combine the two streams
+    let combinedStream =
+        Observable.merge eventStream3 eventStream5
+
+    // make pairs of events
+    let pairwiseStream =
+       combinedStream |> Observable.pairwise
+
+    // split the stream based on whether the pairs are simultaneous
+    let simultaneousStream, nonSimultaneousStream =
+        pairwiseStream |> Observable.partition areSimultaneous
+
+    // split the non-simultaneous stream based on the id
+    let fizzStream, buzzStream  =
+        nonSimultaneousStream
+        // convert pair of events to the first event
+        |> Observable.map (fun (ev1,_) -> ev1)
+        // split on whether the event id is three
+        |> Observable.partition (fun {label=id} -> id=3)
+
+    //print events from the combinedStream
+    combinedStream
+    |> Observable.subscribe (fun {label=id;time=t} ->
+                                  printf "[%i] %i.%03i " id t.Second t.Millisecond)
+
+    //print events from the simultaneous stream
+    simultaneousStream
+    |> Observable.subscribe (fun _ -> printfn "FizzBuzz")
+
+    //print events from the nonSimultaneous streams
+    fizzStream
+    |> Observable.subscribe (fun _ -> printfn "Fizz")
+
+    buzzStream
+    |> Observable.subscribe (fun _ -> printfn "Buzz")
+
+    // debugging code
+    simultaneousStream |> Observable.subscribe (fun e -> printfn "sim %A" e)
+    nonSimultaneousStream |> Observable.subscribe (fun e -> printfn "non-sim %A" e)
+
+    // run the two timers at the same time
+    [timer33;timer55]
+    |> Async.Parallel
+    |> Async.RunSynchronously
 //---------------------
 // Section 'Why use F#?' Series no. 27
-module WhyUseFSharpSeries27 =
-    let x = 0
-
+// http://fsharpforfunandprofit.com/posts/completeness-intro/
+// No Code
 
 //---------------------
 // Section 'Why use F#?' Series no. 28
+// http://fsharpforfunandprofit.com/posts/completeness-seamless-dotnet-interop/
 module WhyUseFSharpSeries28 =
-    let x = 0
+    //using an Int32
+    let (i1success,i1) = System.Int32.TryParse("123");
+    if i1success then printfn "parsed as %i" i1 else printfn "parse failed"
 
+    let (i2success,i2) = System.Int32.TryParse("hello");
+    if i2success then printfn "parsed as %i" i2 else printfn "parse failed"
+
+    //using a DateTime
+    let (d1success,d1) = System.DateTime.TryParse("1/1/1980");
+    let (d2success,d2) = System.DateTime.TryParse("hello");
+
+    //using a dictionary
+    let dict = new System.Collections.Generic.Dictionary<string,string>();
+    dict.Add("a","hello")
+    let (e1success,e1) = dict.TryGetValue("a");
+    let (e2success,e2) = dict.TryGetValue("b");
+
+//    let createReader fileName = new System.IO.StreamReader(fileName)
+    // error FS0041: A unique overload for method 'StreamReader'
+    //               could not be determined
+    let createReader2 fileName = new System.IO.StreamReader(path=fileName)
+
+    let (|Digit|Letter|Whitespace|Other|) ch =
+       if System.Char.IsDigit(ch) then Digit
+       else if System.Char.IsLetter(ch) then Letter
+       else if System.Char.IsWhiteSpace(ch) then Whitespace
+       else Other
+
+    let printChar ch =
+      match ch with
+      | Digit -> printfn "%c is a Digit" ch
+      | Letter -> printfn "%c is a Letter" ch
+      | Whitespace -> printfn "%c is a Whitespace" ch
+      | _ -> printfn "%c is something else" ch
+
+    // print a list
+    ['a';'b';'1';' ';'-';'c'] |> List.iter printChar
+
+    open System.Data.SqlClient
+
+    let (|ConstraintException|ForeignKeyException|Other|) (ex:SqlException) =
+       if ex.Number = 2601 then ConstraintException
+       else if ex.Number = 2627 then ConstraintException
+       else if ex.Number = 547 then ForeignKeyException
+       else Other
+
+    let executeNonQuery (sqlCommmand:SqlCommand) =
+        try
+            let result = sqlCommmand.ExecuteNonQuery()
+            // handle success
+            printfn "%i" result
+        with
+        | :?SqlException as sqlException -> // if a SqlException
+            match sqlException with         // nice pattern matching
+            | ConstraintException  -> printfn "ConstraintException" // handle constraint error
+            | ForeignKeyException  -> printfn "ForeignKeyException" // handle FK error
+            | _ -> reraise()          // don't handle any other cases
+        // all non SqlExceptions are thrown normally
+
+
+    // create a new object that implements IDisposable
+    let makeResource name =
+       { new System.IDisposable
+         with member this.Dispose() = printfn "%s disposed" name }
+
+    let useAndDisposeResources =
+        use r1 = makeResource "first resource"
+        printfn "using first resource"
+        for i in [1..3] do
+            let resourceName = sprintf "\tinner resource %d" i
+            use temp = makeResource resourceName
+            printfn "\tdo something with %s" resourceName
+        use r2 = makeResource "second resource"
+        printfn "using second resource"
+        printfn "done."
 
 //---------------------
 // Section 'Why use F#?' Series no. 29
